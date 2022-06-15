@@ -32,9 +32,9 @@ require_package libssl-dev
 retpoline_retrofit=0
 
 LINUX_BRANCH=$(uname -r)
-PLATFORM=$(uname -n)
+PLATFORM="odroid" #$(uname -n)
 if [ "$PLATFORM" = "odroid" ]; then
-	kernel_branch="hwe"
+	kernel_branch="hwe-5.13"
 else
 	kernel_branch=$(choose_kernel_branch $LINUX_BRANCH)	
 fi
@@ -44,7 +44,8 @@ ubuntu_codename=`. /etc/os-release; echo ${UBUNTU_CODENAME/*, /}`
 if [ -z "$UBUNTU_CODENAME" ];
 then
 	# Trusty Tahr shall use xenial code base
-	ubuntu_codename="xenial"
+	ubuntu_codename="focal"
+	#ubuntu_codename="xenial"
 	retpoline_retrofit=1
 fi
 
@@ -59,7 +60,8 @@ fi
 
 
 # Get the linux kernel and change into source tree
-[ ! -d ${kernel_name} ] && git clone -b $kernel_branch git://kernel.ubuntu.com/ubuntu/ubuntu-${ubuntu_codename}.git --depth 1 ./${kernel_name}
+#[ ! -d ${kernel_name} ] && git clone -b $kernel_branch git://kernel.ubuntu.com/ubuntu/ubuntu-${ubuntu_codename}.git --depth 1 ./${kernel_name}
+[ ! -d ${kernel_name} ] && git clone -b hwe-5.13 git://kernel.ubuntu.com/ubuntu/ubuntu-${ubuntu_codename}.git --depth 1 ./${kernel_name}
 cd ${kernel_name}
 
 # Verify that there are no trailing changes., warn the user to make corrective action if needed
@@ -94,18 +96,24 @@ then
 else
 	# Patching kernel for RealSense devices
 	echo -e "\e[32mApplying realsense-uvc patch\e[0m"
-	patch -p1 < ../scripts/realsense-camera-formats-${ubuntu_codename}-${kernel_branch}.patch
+	patch -p1 < ../scripts/realsense-camera-formats-focal-hwe-5.11.patch
 	echo -e "\e[32mApplying realsense-metadata patch\e[0m"
-	patch -p1 < ../scripts/realsense-metadata-${ubuntu_codename}-${kernel_branch}.patch
+	patch -p1 < ../scripts/realsense-metadata-focal-master.patch
+
 	echo -e "\e[32mApplying realsense-hid patch\e[0m"
-	patch -p1 < ../scripts/realsense-hid-${ubuntu_codename}-${kernel_branch}.patch
+	#patch -p1 < ../scripts/realsense-hid-${ubuntu_codename}-${kernel_branch}.patch
+	patch -p1 < ../scripts/realsense-hid-focal-master.patch 
+	patch -p1 < ../scripts/hid-sensor-gyro-3d-hwe-5.13.patch
+ 
 	echo -e "\e[32mApplying realsense-powerlinefrequency-fix patch\e[0m"
 	patch -p1 < ../scripts/realsense-powerlinefrequency-control-fix.patch
 fi
 
 # Copy configuration
-sudo cp /usr/src/linux-headers-$(uname -r)/.config .
-sudo cp /usr/src/linux-headers-$(uname -r)/Module.symvers .
+#sudo cp /usr/src/linux-headers-$(uname -r)/.config .
+sudo cp  /usr/src/linux-headers-5.13.0-odroid-arm64/.config .
+#sudo cp /usr/src/linux-headers-$(uname -r)/Module.symvers .
+sudo cp  /usr/src/linux-headers-5.13.0-odroid-arm64/Module.symvers .
 
 # Basic build for kernel modules
 echo -e "\e[32mPrepare kernel modules configuration\e[0m"
@@ -116,7 +124,8 @@ if [ ! -f scripts/ubuntu-retpoline-extract-one ]; then
 	for f in $(find . -name 'retpoline-extract-one'); do cp ${f} scripts/ubuntu-retpoline-extract-one; done;
 	echo $$$
 fi
-sudo make silentoldconfig modules_prepare
+#sudo make menuconfig
+#sudo make modules_prepare
 
 #Vermagic identity is required
 IFS='.' read -a kernel_version <<< "$LINUX_BRANCH"
@@ -133,17 +142,17 @@ sudo cp $KBASE/Module.symvers .
 echo -e "\e[32mCompiling uvc module\e[0m"
 sudo make -j -C $KBASE M=$KBASE/drivers/media/usb/uvc/ modules
 echo -e "\e[32mCompiling accelerometer and gyro modules\e[0m"
-sudo make -j -C $KBASE M=$KBASE/drivers/iio/accel modules
-sudo make -j -C $KBASE M=$KBASE/drivers/iio/gyro modules
+#sudo make -j -C $KBASE M=$KBASE/drivers/iio/accel modules
+#sudo make -j -C $KBASE M=$KBASE/drivers/iio/gyro modules
 echo -e "\e[32mCompiling v4l2-core modules\e[0m"
 sudo make -j -C $KBASE M=$KBASE/drivers/media/v4l2-core modules
 
 # Copy and load the patched modules to a sane location
-if [ -f $KBASE/drivers/media/usb/uvc/uvcvideo.ko ]; then
-	echo "Copying uvcvideo.ko"
-	sudo cp $KBASE/drivers/media/usb/uvc/uvcvideo.ko ~/$LINUX_BRANCH-uvcvideo.ko
-	try_module_insert uvcvideo ~/$LINUX_BRANCH-uvcvideo.ko /lib/modules/`uname -r`/kernel/drivers/media/usb/uvc/uvcvideo.ko
-fi
+#if [ -f $KBASE/drivers/media/usb/uvc/uvcvideo.ko ]; then
+#	echo "Copying uvcvideo.ko"
+#	sudo cp $KBASE/drivers/media/usb/uvc/uvcvideo.ko ~/$LINUX_BRANCH-uvcvideo.ko
+#	try_module_insert uvcvideo ~/$LINUX_BRANCH-uvcvideo.ko /lib/modules/`uname -r`/kernel/drivers/media/usb/uvc/uvcvideo.ko
+#fi
 
 if [ -f $KBASE/drivers/iio/accel/hid-sensor-accel-3d.ko ]; then
 	echo "Copying hid-sensor-accel-3d.ko" 

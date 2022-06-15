@@ -100,7 +100,8 @@ function choose_kernel_branch {
 		if [ "$2" != "focal" ]; 				# Ubuntu 20
 		then
 			echo -e "\e[31mUnsupported distribution $2, kernel version $1 . The patches are maintained for Ubuntu 16/18/20 LTS\e[0m" >&2
-			exit 1
+			echo hwe-5.11
+			#exit 1
 		fi
 		case "${kernel_version[0]}.${kernel_version[1]}" in
 		"5.4")									# kernel 5.4
@@ -115,7 +116,8 @@ function choose_kernel_branch {
 		*)
 			#error message shall be redirected to stderr to be printed properly
 			echo -e "\e[31mUnsupported kernel version $1 . The Focal patches are maintained for Ubuntu LTS with kernel 5.4, 5.8, 5.11 only\e[0m" >&2
-			exit 1
+			echo hwe-5.11
+			#exit 1
 			;;
 		esac
 	fi
